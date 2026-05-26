@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pygame
 
+from src.player import Player
 from src.settings import (
     BACKGROUND_COLOR,
     FPS,
@@ -22,6 +23,7 @@ class Game:
         self.running = True
         self.font = pygame.font.Font(None, 40)
         self.small_font = pygame.font.Font(None, 28)
+        self.player = Player()
 
     def _handle_events(self) -> None:
         for event in pygame.event.get():
@@ -31,7 +33,8 @@ class Game:
                 self.running = False
 
     def _update(self) -> None:
-        pass
+        keys = pygame.key.get_pressed()
+        self.player.update(keys)
 
     def _draw(self) -> None:
         self.screen.fill(BACKGROUND_COLOR)
@@ -44,6 +47,7 @@ class Game:
 
         self.screen.blit(title_surface, title_rect)
         self.screen.blit(help_surface, help_rect)
+        self.player.draw(self.screen)
         pygame.display.flip()
 
     def run(self, max_frames: int | None = None) -> None:
