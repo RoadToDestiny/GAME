@@ -1,8 +1,8 @@
-from src.settings import GAME_TITLE, STAGE_DESCRIPTION
+from src.game import Game
 
 
 def main() -> None:
-    print(f"{GAME_TITLE}: {STAGE_DESCRIPTION}")
+    Game().run()
 
 
 if __name__ == "__main__":

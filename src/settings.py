@@ -5,3 +5,4 @@ FPS = 60
 
 BACKGROUND_COLOR = (23, 30, 38)
 TEXT_COLOR = (230, 235, 240)
+HELP_TEXT = "Press ESC to exit"
