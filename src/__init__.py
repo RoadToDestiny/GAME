@@ -1,0 +1,1 @@
+"""Core package for the The way of the Rex game"""
