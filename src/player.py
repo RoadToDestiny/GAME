@@ -38,7 +38,7 @@ class Player:
         self.sprint_multiplier = 1.0
         self._apply_stage(self.stage_index, keep_hp_ratio=False)
 
-    def update(self, keys: pygame.key.ScancodeWrapper, dt: float) -> None:
+    def update(self, keys: pygame.key.ScancodeWrapper, dt: float, obstacles: list[pygame.Rect]) -> None:
         move_x = 0.0
         move_y = 0.0
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
@@ -59,8 +59,8 @@ class Player:
             vector_length = (move_x * move_x + move_y * move_y) ** 0.5
             move_x /= vector_length
             move_y /= vector_length
-            self.pos_x += move_x * speed * 60.0 * dt
-            self.pos_y += move_y * speed * 60.0 * dt
+            self._move_axis(move_x * speed * 60.0 * dt, 0.0, obstacles)
+            self._move_axis(0.0, move_y * speed * 60.0 * dt, obstacles)
 
         if can_sprint:
             self.stamina = max(0.0, self.stamina - PLAYER_SPRINT_DRAIN_PER_SECOND * dt)
@@ -70,8 +70,6 @@ class Player:
                 self.stamina + PLAYER_SPRINT_REGEN_PER_SECOND * dt,
             )
 
-        self.rect.x = int(self.pos_x)
-        self.rect.y = int(self.pos_y)
         self._clamp_to_window()
 
     def collect_food(self) -> None:
@@ -147,6 +145,26 @@ class Player:
         self.rect.bottom = min(self.rect.bottom, WINDOW_HEIGHT)
         self.pos_x = float(self.rect.x)
         self.pos_y = float(self.rect.y)
+
+    def _move_axis(self, dx: float, dy: float, obstacles: list[pygame.Rect]) -> None:
+        self.pos_x += dx
+        self.pos_y += dy
+        self.rect.x = int(self.pos_x)
+        self.rect.y = int(self.pos_y)
+
+        for obstacle in obstacles:
+            if not self.rect.colliderect(obstacle):
+                continue
+            if dx > 0:
+                self.rect.right = obstacle.left
+            elif dx < 0:
+                self.rect.left = obstacle.right
+            if dy > 0:
+                self.rect.bottom = obstacle.top
+            elif dy < 0:
+                self.rect.top = obstacle.bottom
+            self.pos_x = float(self.rect.x)
+            self.pos_y = float(self.rect.y)
 
     def draw(self, surface: pygame.Surface) -> None:
         pygame.draw.rect(surface, PLAYER_COLOR, self.rect, border_radius=8)

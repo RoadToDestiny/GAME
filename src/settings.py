@@ -5,6 +5,8 @@ FPS = 60
 
 BACKGROUND_COLOR = (23, 30, 38)
 TEXT_COLOR = (230, 235, 240)
+OBSTACLE_COLOR = (70, 85, 95)
+EXIT_COLOR = (90, 170, 220)
 HELP_TEXT = "Move: WASD/Arrows | Sprint: Shift | Bite: Space | ESC: Exit"
 
 PLAYER_COLOR = (70, 180, 90)
@@ -16,8 +18,6 @@ PLAYER_SPRINT_DRAIN_PER_SECOND = 40.0
 PLAYER_SPRINT_REGEN_PER_SECOND = 25.0
 PLAYER_HIT_INVULNERABILITY_MS = 600
 
-# Stage-based growth model:
-# (food_required, speed, max_hp, size, bite_damage, bite_range, bite_cooldown_ms, bite_stun_ms, sprint_multiplier)
 PLAYER_GROWTH_STAGES = (
     (0, 4.8, 3, 42, 1, 44, 700, 250, 1.35),
     (4, 5.2, 4, 48, 1, 50, 650, 300, 1.40),
@@ -30,7 +30,6 @@ FOOD_COLOR = (240, 190, 70)
 FOOD_SIZE = 24
 FOOD_MARGIN = 24
 
-# Gameplay: lives and enemies
 ENEMY_COLOR = (190, 70, 70)
 ENEMY_SIZE = 36
 ENEMY_SPEED_MIN = 2
@@ -38,8 +37,11 @@ ENEMY_SPEED_MAX = 4
 ENEMY_BASE_HP = 3
 ENEMY_INITIAL_COUNT = 2
 ENEMY_SPAWN_INTERVAL_MS = 2000
+ENEMY_CONTACT_DAMAGE = 1
+ENEMY_AGGRO_BASE_RANGE = 160
+ENEMY_ATTACK_RANGE = 42
+ENEMY_PATROL_RADIUS = 80
 
-# Level progression
 LEVEL_BASE_TARGET = 3
 LEVEL_TARGET_INCREMENT = 2
 LEVEL_MAX_NUMBER = 6

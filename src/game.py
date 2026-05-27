@@ -8,14 +8,14 @@ from src.enemy import Enemy
 from src.level import Level
 from src.settings import (
     BACKGROUND_COLOR,
+    EXIT_COLOR,
     FPS,
     GAME_TITLE,
     HELP_TEXT,
+    OBSTACLE_COLOR,
     TEXT_COLOR,
     WINDOW_HEIGHT,
     WINDOW_WIDTH,
-    ENEMY_INITIAL_COUNT,
-    LEVEL_ENEMY_INCREMENT,
     LEVEL_MAX_NUMBER,
 )
 
@@ -33,11 +33,16 @@ class Game:
         self.player = Player()
         self.food = Food()
         self.score = 0
-        self.enemies = [Enemy() for _ in range(ENEMY_INITIAL_COUNT)]
 
         self.level = Level()
+        self.player.reset_position()
+        self.player.rect.center = self.level.start_pos
+        self.player.pos_x = float(self.player.rect.x)
+        self.player.pos_y = float(self.player.rect.y)
+        self.enemies = [Enemy(spawn) for spawn in self.level.enemy_spawns]
         self.level_food = 0
-        self.state = "playing"  # playing | level_complete | game_over
+        self.state = "playing"
+        self.food.reposition(self.level.obstacles + [self.level.exit_rect])
 
     def _handle_events(self) -> None:
         for event in pygame.event.get():
@@ -59,29 +64,36 @@ class Game:
 
     def _update(self, dt: float) -> None:
         keys = pygame.key.get_pressed()
-        self.player.update(keys, dt)
+        self.player.update(keys, dt, self.level.obstacles)
         now_ms = pygame.time.get_ticks()
 
         if self.player.rect.colliderect(self.food.rect):
             self.score += 1
             self.level_food += 1
             self.player.collect_food()
-            self.food.reposition()
-            if self.level_food >= self.level.target:
-                self.state = "level_complete"
+            self.food.reposition(self.level.obstacles + [self.level.exit_rect])
+
+        if self.player.rect.colliderect(self.level.exit_rect) and self.level_food >= self.level.target:
+            self.state = "level_complete"
 
         for enemy in self.enemies:
-            enemy.update(now_ms)
-            if self.player.rect.colliderect(enemy.rect):
-                if self.player.take_hit(now_ms):
-                    enemy.reposition()
-                    # reset player to start position without changing its stage
-                    self.player.reset_position()
+            enemy.update(now_ms, self.player.rect.center, self.level.obstacles)
+            if self.player.rect.colliderect(enemy.rect) and enemy.state == "attack":
+                if self.player.take_hit(now_ms, enemy.contact_damage):
                     if self.player.current_hp <= 0:
                         self.state = "game_over"
+                    else:
+                        self.player.reset_position()
+                        self.player.rect.center = self.level.start_pos
+                        self.player.pos_x = float(self.player.rect.x)
+                        self.player.pos_y = float(self.player.rect.y)
 
     def _draw(self) -> None:
         self.screen.fill(BACKGROUND_COLOR)
+
+        pygame.draw.rect(self.screen, EXIT_COLOR, self.level.exit_rect, border_radius=6)
+        for obstacle in self.level.obstacles:
+            pygame.draw.rect(self.screen, OBSTACLE_COLOR, obstacle, border_radius=6)
 
         title_surface = self.font.render(GAME_TITLE, True, TEXT_COLOR)
         help_surface = self.small_font.render(HELP_TEXT, True, TEXT_COLOR)
@@ -105,6 +117,11 @@ class Game:
         level_surface = self.small_font.render(
             f"Level {self.level.number}: {self.level_food}/{self.level.target}", True, TEXT_COLOR
         )
+        objective_surface = self.small_font.render(
+            "Objective: collect food target, then reach blue exit",
+            True,
+            TEXT_COLOR,
+        )
 
         title_rect = title_surface.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 - 20))
         help_rect = help_surface.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 + 20))
@@ -114,6 +131,7 @@ class Game:
         stamina_rect = stamina_surface.get_rect(topright=(WINDOW_WIDTH - 16, 42))
         bite_rect = bite_surface.get_rect(topleft=(16, 68))
         level_rect = level_surface.get_rect(center=(WINDOW_WIDTH // 2, 24))
+        objective_rect = objective_surface.get_rect(center=(WINDOW_WIDTH // 2, 50))
 
         self.screen.blit(title_surface, title_rect)
         self.screen.blit(help_surface, help_rect)
@@ -123,12 +141,12 @@ class Game:
         self.screen.blit(stamina_surface, stamina_rect)
         self.screen.blit(bite_surface, bite_rect)
         self.screen.blit(level_surface, level_rect)
+        self.screen.blit(objective_surface, objective_rect)
         self.food.draw(self.screen)
         for enemy in self.enemies:
             enemy.draw(self.screen)
         self.player.draw(self.screen)
 
-        # Overlay screens
         if self.state == "level_complete":
             overlay = self.font.render(
                 f"Level {self.level.number} complete! Press Enter to continue",
@@ -162,30 +180,30 @@ class Game:
         pygame.quit()
 
     def _advance_level(self) -> None:
-        # Move to the next level, increase difficulty and reset per-level counters
         if self.level.number >= LEVEL_MAX_NUMBER:
-            # final level reached - for now treat as game over/win
             self.state = "game_over"
             return
 
         self.level.advance()
-        # add a bit more challenge
-        for _ in range(LEVEL_ENEMY_INCREMENT):
-            self.enemies.append(Enemy())
-
         self.level_food = 0
         self.player.reset_position()
-        self.food.reposition()
+        self.player.rect.center = self.level.start_pos
+        self.player.pos_x = float(self.player.rect.x)
+        self.player.pos_y = float(self.player.rect.y)
+        self.enemies = [Enemy(spawn) for spawn in self.level.enemy_spawns]
+        self.food.reposition(self.level.obstacles + [self.level.exit_rect])
         self.state = "playing"
 
     def _restart(self) -> None:
-        # Reset game to initial state
         self.level = Level()
         self.level_food = 0
         self.score = 0
         self.player.reset()
-        self.enemies = [Enemy() for _ in range(ENEMY_INITIAL_COUNT)]
-        self.food.reposition()
+        self.player.rect.center = self.level.start_pos
+        self.player.pos_x = float(self.player.rect.x)
+        self.player.pos_y = float(self.player.rect.y)
+        self.enemies = [Enemy(spawn) for spawn in self.level.enemy_spawns]
+        self.food.reposition(self.level.obstacles + [self.level.exit_rect])
         self.state = "playing"
 
     def _player_bite(self) -> None:
