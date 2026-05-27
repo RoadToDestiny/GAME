@@ -5,32 +5,42 @@ FPS = 60
 
 BACKGROUND_COLOR = (23, 30, 38)
 TEXT_COLOR = (230, 235, 240)
-HELP_TEXT = "Arrows/WASD to move, ESC to exit, collect berries to grow"
+HELP_TEXT = "Move: WASD/Arrows | Sprint: Shift | Bite: Space | ESC: Exit"
 
 PLAYER_COLOR = (70, 180, 90)
 PLAYER_SIZE = 42
-PLAYER_SPEED = 5
-PLAYER_GROWTH_STEP = 6
-PLAYER_MAX_SIZE = 78
 PLAYER_START_X = WINDOW_WIDTH // 2 - PLAYER_SIZE // 2
 PLAYER_START_Y = WINDOW_HEIGHT // 2 + 70
+PLAYER_SPRINT_STAMINA_MAX = 100.0
+PLAYER_SPRINT_DRAIN_PER_SECOND = 40.0
+PLAYER_SPRINT_REGEN_PER_SECOND = 25.0
+PLAYER_HIT_INVULNERABILITY_MS = 600
+
+# Stage-based growth model:
+# (food_required, speed, max_hp, size, bite_damage, bite_range, bite_cooldown_ms, bite_stun_ms, sprint_multiplier)
+PLAYER_GROWTH_STAGES = (
+    (0, 4.8, 3, 42, 1, 44, 700, 250, 1.35),
+    (4, 5.2, 4, 48, 1, 50, 650, 300, 1.40),
+    (10, 5.8, 5, 56, 2, 56, 600, 400, 1.45),
+    (18, 6.3, 6, 66, 2, 64, 560, 520, 1.50),
+    (28, 6.8, 7, 76, 3, 72, 520, 650, 1.55),
+)
 
 FOOD_COLOR = (240, 190, 70)
 FOOD_SIZE = 24
 FOOD_MARGIN = 24
 
 # Gameplay: lives and enemies
-INITIAL_LIVES = 3
-
 ENEMY_COLOR = (190, 70, 70)
 ENEMY_SIZE = 36
 ENEMY_SPEED_MIN = 2
 ENEMY_SPEED_MAX = 4
+ENEMY_BASE_HP = 3
 ENEMY_INITIAL_COUNT = 2
 ENEMY_SPAWN_INTERVAL_MS = 2000
 
 # Level progression
 LEVEL_BASE_TARGET = 3
 LEVEL_TARGET_INCREMENT = 2
-LEVEL_MAX_NUMBER = 10
+LEVEL_MAX_NUMBER = 6
 LEVEL_ENEMY_INCREMENT = 1
