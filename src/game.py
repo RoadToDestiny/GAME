@@ -6,6 +6,7 @@ from src.food import Food
 from src.player import Player
 from src.enemy import Enemy
 from src.level import Level
+from src.projectile import Projectile
 from src.settings import (
     BACKGROUND_COLOR,
     EXIT_COLOR,
@@ -39,7 +40,8 @@ class Game:
         self.player.rect.center = self.level.start_pos
         self.player.pos_x = float(self.player.rect.x)
         self.player.pos_y = float(self.player.rect.y)
-        self.enemies = [Enemy(spawn) for spawn in self.level.enemy_spawns]
+        self.enemies = [Enemy((x, y), enemy_type) for x, y, enemy_type in self.level.enemy_spawns]
+        self.projectiles: list[Projectile] = []
         self.level_food = 0
         self.state = "playing"
         self.food.reposition(self.level.obstacles + [self.level.exit_rect])
@@ -63,9 +65,9 @@ class Game:
                         self.running = False
 
     def _update(self, dt: float) -> None:
-        keys = pygame.key.get_pressed()
-        self.player.update(keys, dt, self.level.obstacles)
         now_ms = pygame.time.get_ticks()
+        keys = pygame.key.get_pressed()
+        self.player.update(keys, dt, self.level.obstacles, now_ms)
 
         if self.player.rect.colliderect(self.food.rect):
             self.score += 1
@@ -77,8 +79,11 @@ class Game:
             self.state = "level_complete"
 
         for enemy in self.enemies:
-            enemy.update(now_ms, self.player.rect.center, self.level.obstacles)
-            if self.player.rect.colliderect(enemy.rect) and enemy.state == "attack":
+            attack_payload = enemy.update(now_ms, self.player.rect.center, self.level.obstacles)
+            if attack_payload is not None:
+                projectile_pos, projectile_dir, stun_ms = attack_payload
+                self.projectiles.append(Projectile(projectile_pos, projectile_dir, stun_ms))
+            if enemy.enemy_type == "melee" and self.player.rect.colliderect(enemy.rect) and enemy.state == "attack":
                 if self.player.take_hit(now_ms, enemy.contact_damage):
                     if self.player.current_hp <= 0:
                         self.state = "game_over"
@@ -87,6 +92,23 @@ class Game:
                         self.player.rect.center = self.level.start_pos
                         self.player.pos_x = float(self.player.rect.x)
                         self.player.pos_y = float(self.player.rect.y)
+
+        alive_projectiles: list[Projectile] = []
+        for projectile in self.projectiles:
+            projectile.update(dt)
+            if self._projectile_hits_wall(projectile):
+                continue
+            if not self._inside_world(projectile.rect):
+                continue
+            if projectile.rect.colliderect(self.player.rect):
+                if self.player.take_hit(now_ms, projectile.damage):
+                    if projectile.stun_ms > 0:
+                        self.player.apply_stun(now_ms, projectile.stun_ms)
+                    if self.player.current_hp <= 0:
+                        self.state = "game_over"
+                continue
+            alive_projectiles.append(projectile)
+        self.projectiles = alive_projectiles
 
     def _draw(self) -> None:
         self.screen.fill(BACKGROUND_COLOR)
@@ -145,6 +167,8 @@ class Game:
         self.food.draw(self.screen)
         for enemy in self.enemies:
             enemy.draw(self.screen)
+        for projectile in self.projectiles:
+            projectile.draw(self.screen)
         self.player.draw(self.screen)
 
         if self.state == "level_complete":
@@ -190,7 +214,8 @@ class Game:
         self.player.rect.center = self.level.start_pos
         self.player.pos_x = float(self.player.rect.x)
         self.player.pos_y = float(self.player.rect.y)
-        self.enemies = [Enemy(spawn) for spawn in self.level.enemy_spawns]
+        self.enemies = [Enemy((x, y), enemy_type) for x, y, enemy_type in self.level.enemy_spawns]
+        self.projectiles = []
         self.food.reposition(self.level.obstacles + [self.level.exit_rect])
         self.state = "playing"
 
@@ -202,7 +227,8 @@ class Game:
         self.player.rect.center = self.level.start_pos
         self.player.pos_x = float(self.player.rect.x)
         self.player.pos_y = float(self.player.rect.y)
-        self.enemies = [Enemy(spawn) for spawn in self.level.enemy_spawns]
+        self.enemies = [Enemy((x, y), enemy_type) for x, y, enemy_type in self.level.enemy_spawns]
+        self.projectiles = []
         self.food.reposition(self.level.obstacles + [self.level.exit_rect])
         self.state = "playing"
 
@@ -229,3 +255,10 @@ class Game:
             alive_enemies.append(enemy)
 
         self.enemies = alive_enemies
+
+    @staticmethod
+    def _inside_world(rect: pygame.Rect) -> bool:
+        return rect.right >= 0 and rect.left <= WINDOW_WIDTH and rect.bottom >= 0 and rect.top <= WINDOW_HEIGHT
+
+    def _projectile_hits_wall(self, projectile: Projectile) -> bool:
+        return any(projectile.rect.colliderect(obstacle) for obstacle in self.level.obstacles)

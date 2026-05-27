@@ -40,12 +40,12 @@ class Level:
         return base
 
     @staticmethod
-    def _build_enemy_spawns(level_number: int) -> list[tuple[int, int]]:
-        spawns = [(260, 420), (560, 420)]
+    def _build_enemy_spawns(level_number: int) -> list[tuple[int, int, str]]:
+        spawns: list[tuple[int, int, str]] = [(260, 420, "melee"), (560, 420, "melee")]
         if level_number >= 2:
-            spawns.append((430, 120))
+            spawns.append((430, 120, "shooter"))
         if level_number >= 4:
-            spawns.append((720, 120))
+            spawns.append((720, 120, "stunner"))
         if level_number >= 6:
-            spawns.append((820, 430))
+            spawns.append((820, 430, "shooter"))
         return spawns

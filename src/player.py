@@ -6,6 +6,7 @@ from src.settings import (
     PLAYER_COLOR,
     PLAYER_GROWTH_STAGES,
     PLAYER_HIT_INVULNERABILITY_MS,
+    PLAYER_SPRITE_PATH,
     PLAYER_START_X,
     PLAYER_START_Y,
     PLAYER_SIZE,
@@ -27,6 +28,7 @@ class Player:
         self.stamina = PLAYER_SPRINT_STAMINA_MAX
         self.last_hit_ms = -PLAYER_HIT_INVULNERABILITY_MS
         self.last_bite_ms = -10_000
+        self.stunned_until_ms = 0
 
         self.speed = 0.0
         self.max_hp = 0
@@ -37,8 +39,23 @@ class Player:
         self.bite_stun_ms = 0
         self.sprint_multiplier = 1.0
         self._apply_stage(self.stage_index, keep_hp_ratio=False)
+        self._sprite_source = self._load_sprite()
+        self._sprite_size = 0
+        self._sprite_scaled: pygame.Surface | None = None
 
-    def update(self, keys: pygame.key.ScancodeWrapper, dt: float, obstacles: list[pygame.Rect]) -> None:
+    def update(
+        self,
+        keys: pygame.key.ScancodeWrapper,
+        dt: float,
+        obstacles: list[pygame.Rect],
+        now_ms: int,
+    ) -> None:
+        if now_ms < self.stunned_until_ms:
+            self.stamina = min(
+                PLAYER_SPRINT_STAMINA_MAX,
+                self.stamina + PLAYER_SPRINT_REGEN_PER_SECOND * dt,
+            )
+            return
         move_x = 0.0
         move_y = 0.0
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
@@ -93,8 +110,10 @@ class Player:
         self.current_hp = max(0, self.current_hp - damage)
         return True
 
+    def apply_stun(self, now_ms: int, stun_ms: int) -> None:
+        self.stunned_until_ms = max(self.stunned_until_ms, now_ms + stun_ms)
+
     def reset_position(self) -> None:
-        """Return the player to the start position without changing its size."""
         self.rect.centerx = WINDOW_WIDTH // 2
         self.rect.centery = WINDOW_HEIGHT // 2 + 70
         self.pos_x = float(self.rect.x)
@@ -102,12 +121,12 @@ class Player:
         self._clamp_to_window()
 
     def reset(self) -> None:
-        """Reset player to initial size and position."""
         self.food_collected = 0
         self.stage_index = 0
         self.stamina = PLAYER_SPRINT_STAMINA_MAX
         self.last_hit_ms = -PLAYER_HIT_INVULNERABILITY_MS
         self.last_bite_ms = -10_000
+        self.stunned_until_ms = 0
         self._apply_stage(0, keep_hp_ratio=False)
         self.reset_position()
 
@@ -167,4 +186,17 @@ class Player:
             self.pos_y = float(self.rect.y)
 
     def draw(self, surface: pygame.Surface) -> None:
-        pygame.draw.rect(surface, PLAYER_COLOR, self.rect, border_radius=8)
+        if self._sprite_source is None:
+            pygame.draw.rect(surface, PLAYER_COLOR, self.rect, border_radius=8)
+            return
+        if self._sprite_scaled is None or self._sprite_size != self.rect.width:
+            self._sprite_size = self.rect.width
+            self._sprite_scaled = pygame.transform.smoothscale(self._sprite_source, self.rect.size)
+        surface.blit(self._sprite_scaled, self.rect)
+
+    @staticmethod
+    def _load_sprite() -> pygame.Surface | None:
+        try:
+            return pygame.image.load(PLAYER_SPRITE_PATH).convert_alpha()
+        except (pygame.error, FileNotFoundError):
+            return None
