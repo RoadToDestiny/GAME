@@ -4,6 +4,10 @@ import pygame
 
 from src.settings import (
     PLAYER_COLOR,
+    PLAYER_GROWTH_STEP,
+    PLAYER_MAX_SIZE,
+    PLAYER_START_X,
+    PLAYER_START_Y,
     PLAYER_SIZE,
     PLAYER_SPEED,
     WINDOW_HEIGHT,
@@ -13,9 +17,7 @@ from src.settings import (
 
 class Player:
     def __init__(self) -> None:
-        self.rect = pygame.Rect(0, 0, PLAYER_SIZE, PLAYER_SIZE)
-        self.rect.centerx = WINDOW_WIDTH // 2
-        self.rect.centery = WINDOW_HEIGHT // 2 + 70
+        self.rect = pygame.Rect(PLAYER_START_X, PLAYER_START_Y, PLAYER_SIZE, PLAYER_SIZE)
 
     def update(self, keys: pygame.key.ScancodeWrapper) -> None:
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
@@ -27,6 +29,19 @@ class Player:
         if keys[pygame.K_DOWN] or keys[pygame.K_s]:
             self.rect.y += PLAYER_SPEED
 
+        self._clamp_to_window()
+
+    def grow(self) -> None:
+        if self.rect.width >= PLAYER_MAX_SIZE:
+            return
+
+        center = self.rect.center
+        new_size = min(self.rect.width + PLAYER_GROWTH_STEP, PLAYER_MAX_SIZE)
+        self.rect.size = (new_size, new_size)
+        self.rect.center = center
+        self._clamp_to_window()
+
+    def _clamp_to_window(self) -> None:
         self.rect.left = max(self.rect.left, 0)
         self.rect.right = min(self.rect.right, WINDOW_WIDTH)
         self.rect.top = max(self.rect.top, 0)
