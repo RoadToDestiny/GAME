@@ -49,6 +49,13 @@ class Enemy:
         self.contact_damage = ENEMY_CONTACT_DAMAGE
         self.last_attack_ms = -10_000
         self._sprite = self._prepare_sprite()
+        self._sprite_flipped: pygame.Surface | None = None
+        if self._sprite is not None:
+            try:
+                self._sprite_flipped = pygame.transform.flip(self._sprite, True, False)
+            except Exception:
+                self._sprite_flipped = None
+        self.facing_left = False
 
     def reposition(self) -> None:
         if self.base_pos is None:
@@ -139,7 +146,8 @@ class Enemy:
 
     def draw(self, surface: pygame.Surface) -> None:
         if self._sprite is not None:
-            surface.blit(self._sprite, self.rect)
+            sprite = self._sprite_flipped if self.facing_left and self._sprite_flipped is not None else self._sprite
+            surface.blit(sprite, self.rect)
             return
         if self.enemy_type == "shooter":
             color = ENEMY_SHOOTER_COLOR
@@ -162,6 +170,9 @@ class Enemy:
         tx, ty = target
         dx = tx - ex
         dy = ty - ey
+        # Update facing based on horizontal direction to the target
+        if abs(dx) > 1e-6:
+            self.facing_left = dx < 0
         distance = (dx * dx + dy * dy) ** 0.5
         if distance < 1e-6:
             return
@@ -246,7 +257,61 @@ class Enemy:
 
     @staticmethod
     def _load_sprite(path: str) -> pygame.Surface | None:
-        try:
-            return pygame.image.load(path).convert_alpha()
-        except (pygame.error, FileNotFoundError):
-            return None
+        import os
+        import glob
+
+        def try_load(p: str) -> pygame.Surface | None:
+            try:
+                return pygame.image.load(p).convert_alpha()
+            except Exception:
+                return None
+
+        # Try configured path first
+        sprite = try_load(path)
+        if sprite is not None:
+            return sprite
+
+        # Fallback: search assets folder and choose best match by filename tokens
+        import re
+        assets_dir = os.path.dirname(path) or "assets"
+        base = os.path.basename(path).lower()
+        name_no_ext = os.path.splitext(base)[0]
+        tokens = set(re.findall(r"[A-Za-z0-9]+", name_no_ext))
+        # Prefer more specific type tokens (avoid the generic 'enemy' token dominating the score)
+        type_aliases = {
+            "melee": {"melee"},
+            "shooter": {"shooter", "range", "ranged"},
+            "stunner": {"stun", "stunner", "stan"},
+        }
+        desired_tokens = set()
+        for t in tokens:
+            if t in type_aliases:
+                desired_tokens |= type_aliases[t]
+            else:
+                desired_tokens.add(t)
+
+        candidates = [f for f in glob.glob(os.path.join(assets_dir, "*.*"))]
+        best_candidate = None
+        best_score = 0
+        for candidate in candidates:
+            name = os.path.splitext(os.path.basename(candidate))[0].lower()
+            tokens = set(re.findall(r"[A-Za-z0-9]+", name))
+            score = len(tokens & desired_tokens)
+            if score > best_score:
+                sprite = try_load(candidate)
+                if sprite is not None:
+                    best_score = score
+                    best_candidate = (candidate, sprite)
+        if best_candidate is not None:
+            print(f"[INFO] Enemy sprite loaded from {best_candidate[0]}")
+            return best_candidate[1]
+
+        # As a last resort, try any image file (excluding map files)
+        for candidate in candidates:
+            if "map" in candidate.lower():
+                continue
+            sprite = try_load(candidate)
+            if sprite is not None:
+                print(f"[INFO] Enemy sprite loaded from {candidate}")
+                return sprite
+        return None

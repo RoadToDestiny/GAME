@@ -21,6 +21,7 @@ from src.settings import (
     LEVEL_TRANSITION_DELAY_MS,
     BUSH_COLOR,
     BUSH_ALPHA,
+    MAP_IMAGE_PATH,
 )
 
 
@@ -33,6 +34,18 @@ class Game:
         self.running = True
         self.font = pygame.font.Font(None, 40)
         self.small_font = pygame.font.Font(None, 28)
+
+        # Try to load a full-screen map image from assets
+        self.map_surface: pygame.Surface | None = None
+        try:
+            map_img = pygame.image.load(MAP_IMAGE_PATH)
+            # If image has alpha channel, preserve it; else convert for faster blit
+            try:
+                self.map_surface = pygame.transform.smoothscale(map_img.convert_alpha(), (WINDOW_WIDTH, WINDOW_HEIGHT))
+            except Exception:
+                self.map_surface = pygame.transform.smoothscale(map_img.convert(), (WINDOW_WIDTH, WINDOW_HEIGHT))
+        except (pygame.error, FileNotFoundError):
+            self.map_surface = None
 
         self.player = Player()
         self.food = Food()
@@ -133,7 +146,11 @@ class Game:
             self._advance_level()
 
     def _draw(self) -> None:
-        self.screen.fill(BACKGROUND_COLOR)
+        # Draw map background if available, otherwise fill with solid color
+        if self.map_surface is not None:
+            self.screen.blit(self.map_surface, (0, 0))
+        else:
+            self.screen.fill(BACKGROUND_COLOR)
 
         pygame.draw.rect(self.screen, EXIT_COLOR, self.level.exit_rect, border_radius=6)
         for obstacle in self.level.obstacles:

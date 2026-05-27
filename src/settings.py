@@ -53,10 +53,14 @@ PROJECTILE_SPEED = 5.2
 PROJECTILE_SIZE = 10
 PROJECTILE_DAMAGE = 1
 
-PLAYER_SPRITE_PATH = "C:/Users/temik/.cursor/projects/e-Repositories-game/assets/c__Users_temik_AppData_Roaming_Cursor_User_workspaceStorage_04241dd30164231c9f8827c1e9fb047b_images_idle_stay_-58594035-31ea-4428-b023-a15119e70d21.png"
-ENEMY_MELEE_SPRITE_PATH = "C:/Users/temik/.cursor/projects/e-Repositories-game/assets/c__Users_temik_AppData_Roaming_Cursor_User_workspaceStorage_04241dd30164231c9f8827c1e9fb047b_images_enemy_melee_-0523d8c9-7568-45b8-baef-09d8656fd519.png"
-ENEMY_SHOOTER_SPRITE_PATH = "C:/Users/temik/.cursor/projects/e-Repositories-game/assets/c__Users_temik_AppData_Roaming_Cursor_User_workspaceStorage_04241dd30164231c9f8827c1e9fb047b_images_enemy_range_-19f1156c-f634-4408-9b2a-729f3d4df259.png"
-ENEMY_STUNNER_SPRITE_PATH = "C:/Users/temik/.cursor/projects/e-Repositories-game/assets/c__Users_temik_AppData_Roaming_Cursor_User_workspaceStorage_04241dd30164231c9f8827c1e9fb047b_images_enemy_stan_-17394f3d-e951-4a67-9924-46174b007ed3.png"
+# Use assets/ directory for sprites. Place your images in the `assets/` folder.
+PLAYER_SPRITE_PATH = "assets/player.png"
+ENEMY_MELEE_SPRITE_PATH = "assets/enemy_melee.png"
+ENEMY_SHOOTER_SPRITE_PATH = "assets/enemy_shooter.png"
+ENEMY_STUNNER_SPRITE_PATH = "assets/enemy_stunner.png"
+
+# Optional map image (will be used as full-screen background if present)
+MAP_IMAGE_PATH = "assets/map1.png"
 
 LEVEL_BASE_TARGET = 3
 LEVEL_TARGET_INCREMENT = 2

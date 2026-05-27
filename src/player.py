@@ -42,6 +42,8 @@ class Player:
         self._sprite_source = self._load_sprite()
         self._sprite_size = 0
         self._sprite_scaled: pygame.Surface | None = None
+        self._sprite_flipped: pygame.Surface | None = None
+        self.facing_left = False
 
     def update(
         self,
@@ -69,6 +71,9 @@ class Player:
 
         sprint_pressed = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
         is_moving = move_x != 0.0 or move_y != 0.0
+        # Update facing direction when a horizontal input is present
+        if is_moving and move_x != 0.0:
+            self.facing_left = move_x < 0.0
         can_sprint = sprint_pressed and is_moving and self.stamina > 0.0
         speed = self.speed * (self.sprint_multiplier if can_sprint else 1.0)
 
@@ -192,11 +197,56 @@ class Player:
         if self._sprite_scaled is None or self._sprite_size != self.rect.width:
             self._sprite_size = self.rect.width
             self._sprite_scaled = pygame.transform.smoothscale(self._sprite_source, self.rect.size)
-        surface.blit(self._sprite_scaled, self.rect)
+            self._sprite_flipped = pygame.transform.flip(self._sprite_scaled, True, False) if self._sprite_scaled is not None else None
+        sprite = self._sprite_flipped if self.facing_left and self._sprite_flipped is not None else self._sprite_scaled
+        surface.blit(sprite, self.rect)
 
     @staticmethod
     def _load_sprite() -> pygame.Surface | None:
-        try:
-            return pygame.image.load(PLAYER_SPRITE_PATH).convert_alpha()
-        except (pygame.error, FileNotFoundError):
-            return None
+        import os
+        import glob
+
+        def try_load(path: str) -> pygame.Surface | None:
+            try:
+                return pygame.image.load(path).convert_alpha()
+            except Exception:
+                return None
+
+        # Try configured path first
+        sprite = try_load(PLAYER_SPRITE_PATH)
+        if sprite is not None:
+            return sprite
+
+        # Fallback: search assets folder and choose best match by filename tokens
+        import re
+        assets_dir = os.path.dirname(PLAYER_SPRITE_PATH) or "assets"
+        desired_tokens = {"player", "idle", "stay", "rex", "hero"}
+
+        candidates = [f for f in glob.glob(os.path.join(assets_dir, "*.*"))]
+        best_candidate = None
+        best_score = 0
+        for candidate in candidates:
+            base = os.path.basename(candidate)
+            name = os.path.splitext(base)[0].lower()
+            tokens = set(re.findall(r"[A-Za-z0-9]+", name))
+            score = len(tokens & desired_tokens)
+            if score > best_score:
+                # try loading before committing
+                sprite = try_load(candidate)
+                if sprite is not None:
+                    best_score = score
+                    best_candidate = (candidate, sprite)
+        # If we found a scored candidate, return it
+        if best_candidate is not None:
+            print(f"[INFO] Player sprite loaded from {best_candidate[0]}")
+            return best_candidate[1]
+
+        # As a last resort, try any image file (excluding obvious map files)
+        for candidate in candidates:
+            if "map" in candidate.lower():
+                continue
+            sprite = try_load(candidate)
+            if sprite is not None:
+                print(f"[INFO] Player sprite loaded from {candidate}")
+                return sprite
+        return None
