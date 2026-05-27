@@ -41,6 +41,12 @@ class Player:
         self.rect.center = center
         self._clamp_to_window()
 
+    def reset_position(self) -> None:
+        """Return the player to the start position without changing its size."""
+        self.rect.centerx = WINDOW_WIDTH // 2
+        self.rect.centery = WINDOW_HEIGHT // 2 + 70
+        self._clamp_to_window()
+
     def _clamp_to_window(self) -> None:
         self.rect.left = max(self.rect.left, 0)
         self.rect.right = min(self.rect.right, WINDOW_WIDTH)

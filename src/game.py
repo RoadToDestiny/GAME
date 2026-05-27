@@ -4,6 +4,7 @@ import pygame
 
 from src.food import Food
 from src.player import Player
+from src.enemy import Enemy
 from src.settings import (
     BACKGROUND_COLOR,
     FPS,
@@ -12,6 +13,8 @@ from src.settings import (
     TEXT_COLOR,
     WINDOW_HEIGHT,
     WINDOW_WIDTH,
+    INITIAL_LIVES,
+    ENEMY_INITIAL_COUNT,
 )
 
 
@@ -27,6 +30,8 @@ class Game:
         self.player = Player()
         self.food = Food()
         self.score = 0
+        self.enemies = [Enemy() for _ in range(ENEMY_INITIAL_COUNT)]
+        self.lives = INITIAL_LIVES
 
     def _handle_events(self) -> None:
         for event in pygame.event.get():
@@ -44,6 +49,16 @@ class Game:
             self.player.grow()
             self.food.reposition()
 
+        for enemy in self.enemies:
+            enemy.update()
+            if self.player.rect.colliderect(enemy.rect):
+                self.lives -= 1
+                enemy.reposition()
+                # reset player to start position without changing its size
+                self.player.reset_position()
+                if self.lives <= 0:
+                    self.running = False
+
     def _draw(self) -> None:
         self.screen.fill(BACKGROUND_COLOR)
 
@@ -51,17 +66,22 @@ class Game:
         help_surface = self.small_font.render(HELP_TEXT, True, TEXT_COLOR)
         score_surface = self.small_font.render(f"Food: {self.score}", True, TEXT_COLOR)
         size_surface = self.small_font.render(f"Size: {self.player.rect.width}", True, TEXT_COLOR)
+        lives_surface = self.small_font.render(f"Lives: {self.lives}", True, TEXT_COLOR)
 
         title_rect = title_surface.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 - 20))
         help_rect = help_surface.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 + 20))
         score_rect = score_surface.get_rect(topleft=(16, 16))
         size_rect = size_surface.get_rect(topleft=(16, 42))
+        lives_rect = lives_surface.get_rect(topright=(WINDOW_WIDTH - 16, 16))
 
         self.screen.blit(title_surface, title_rect)
         self.screen.blit(help_surface, help_rect)
         self.screen.blit(score_surface, score_rect)
         self.screen.blit(size_surface, size_rect)
+        self.screen.blit(lives_surface, lives_rect)
         self.food.draw(self.screen)
+        for enemy in self.enemies:
+            enemy.draw(self.screen)
         self.player.draw(self.screen)
         pygame.display.flip()
 
