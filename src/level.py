@@ -12,12 +12,14 @@ class Level:
         self.start_pos = (80, 270)
         self.exit_rect = pygame.Rect(900, 200, 36, 140)
         self.obstacles = self._build_obstacles(self.number)
+        self.bushes = self._build_bushes(self.number)
         self.enemy_spawns = self._build_enemy_spawns(self.number)
 
     def advance(self) -> None:
         self.number += 1
         self.target = self._compute_target(self.number)
         self.obstacles = self._build_obstacles(self.number)
+        self.bushes = self._build_bushes(self.number)
         self.enemy_spawns = self._build_enemy_spawns(self.number)
 
     @staticmethod
@@ -38,6 +40,29 @@ class Level:
         if level_number >= 5:
             base.append(pygame.Rect(420, 0, 60, 140))
         return base
+
+    @staticmethod
+    def _build_bushes(level_number: int) -> list[pygame.Rect]:
+        base = [
+            pygame.Rect(120, 340, 80, 60),
+            pygame.Rect(560, 340, 100, 60),
+            pygame.Rect(380, 160, 120, 50),
+        ]
+        if level_number >= 3:
+            base.append(pygame.Rect(740, 320, 70, 50))
+        if level_number >= 4:
+            base.append(pygame.Rect(220, 60, 90, 40))
+        if level_number >= 6:
+            base.append(pygame.Rect(460, 220, 80, 45))
+        return base
+
+    def bush_for_point(self, point: tuple[int, int]) -> pygame.Rect | None:
+        """Return the bush rect that contains the given point, or None."""
+        x, y = point
+        for bush in self.bushes:
+            if bush.collidepoint(x, y):
+                return bush
+        return None
 
     @staticmethod
     def _build_enemy_spawns(level_number: int) -> list[tuple[int, int, str]]:

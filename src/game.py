@@ -18,6 +18,9 @@ from src.settings import (
     WINDOW_HEIGHT,
     WINDOW_WIDTH,
     LEVEL_MAX_NUMBER,
+    LEVEL_TRANSITION_DELAY_MS,
+    BUSH_COLOR,
+    BUSH_ALPHA,
 )
 
 
@@ -44,6 +47,7 @@ class Game:
         self.projectiles: list[Projectile] = []
         self.level_food = 0
         self.state = "playing"
+        self.level_complete_started_ms: int | None = None
         self.food.reposition(self.level.obstacles + [self.level.exit_rect])
 
     def _handle_events(self) -> None:
@@ -55,9 +59,6 @@ class Game:
                     self.running = False
                 elif self.state == "playing" and event.key == pygame.K_SPACE:
                     self._player_bite()
-                elif self.state == "level_complete":
-                    if event.key in (pygame.K_RETURN, pygame.K_SPACE):
-                        self._advance_level()
                 elif self.state == "game_over":
                     if event.key == pygame.K_r:
                         self._restart()
@@ -75,15 +76,21 @@ class Game:
             self.player.collect_food()
             self.food.reposition(self.level.obstacles + [self.level.exit_rect])
 
-        if self.player.rect.colliderect(self.level.exit_rect) and self.level_food >= self.level.target:
+        if self.player.rect.colliderect(self.level.exit_rect):
             self.state = "level_complete"
+            self.level_complete_started_ms = now_ms
 
         for enemy in self.enemies:
-            attack_payload = enemy.update(now_ms, self.player.rect.center, self.level.obstacles)
+            attack_payload = enemy.update(now_ms, self.player.rect.center, self.level.obstacles, self.level.bushes)
             if attack_payload is not None:
                 projectile_pos, projectile_dir, stun_ms = attack_payload
-                self.projectiles.append(Projectile(projectile_pos, projectile_dir, stun_ms))
+                # store owner center so we can check bush ownership for collisions
+                self.projectiles.append(Projectile(projectile_pos, projectile_dir, stun_ms, owner_center=enemy.rect.center))
             if enemy.enemy_type == "melee" and self.player.rect.colliderect(enemy.rect) and enemy.state == "attack":
+                # If player is in a bush and enemy isn't in the same bush, ignore damage
+                player_bush = self.level.bush_for_point(self.player.rect.center)
+                if player_bush is not None and not player_bush.collidepoint(enemy.rect.center):
+                    continue
                 if self.player.take_hit(now_ms, enemy.contact_damage):
                     if self.player.current_hp <= 0:
                         self.state = "game_over"
@@ -101,6 +108,13 @@ class Game:
             if not self._inside_world(projectile.rect):
                 continue
             if projectile.rect.colliderect(self.player.rect):
+                # If player is inside a bush and projectile owner isn't in same bush, ignore
+                player_bush = self.level.bush_for_point(self.player.rect.center)
+                owner_bush = None
+                if getattr(projectile, "owner_center", None) is not None:
+                    owner_bush = self.level.bush_for_point(projectile.owner_center)
+                if player_bush is not None and owner_bush is not player_bush:
+                    continue
                 if self.player.take_hit(now_ms, projectile.damage):
                     if projectile.stun_ms > 0:
                         self.player.apply_stun(now_ms, projectile.stun_ms)
@@ -109,6 +123,14 @@ class Game:
                 continue
             alive_projectiles.append(projectile)
         self.projectiles = alive_projectiles
+
+    def _update_level_complete(self) -> None:
+        if self.level_complete_started_ms is None:
+            self.level_complete_started_ms = pygame.time.get_ticks()
+            return
+        now_ms = pygame.time.get_ticks()
+        if now_ms - self.level_complete_started_ms >= LEVEL_TRANSITION_DELAY_MS:
+            self._advance_level()
 
     def _draw(self) -> None:
         self.screen.fill(BACKGROUND_COLOR)
@@ -140,7 +162,7 @@ class Game:
             f"Level {self.level.number}: {self.level_food}/{self.level.target}", True, TEXT_COLOR
         )
         objective_surface = self.small_font.render(
-            "Objective: collect food target, then reach blue exit",
+            "Objective: reach blue exit to finish level",
             True,
             TEXT_COLOR,
         )
@@ -171,9 +193,19 @@ class Game:
             projectile.draw(self.screen)
         self.player.draw(self.screen)
 
+        # Draw bushes as semi-transparent overlays (on top of player/enemies)
+        for bush in self.level.bushes:
+            try:
+                bush_surf = pygame.Surface(bush.size, pygame.SRCALPHA)
+                bush_surf.fill((*BUSH_COLOR, BUSH_ALPHA))
+                self.screen.blit(bush_surf, bush.topleft)
+            except Exception:
+                # Fallback: draw opaque rect if alpha surface creation fails
+                pygame.draw.rect(self.screen, BUSH_COLOR, bush, border_radius=6)
+
         if self.state == "level_complete":
             overlay = self.font.render(
-                f"Level {self.level.number} complete! Press Enter to continue",
+                f"Level {self.level.number} complete! Next level loading...",
                 True,
                 TEXT_COLOR,
             )
@@ -195,6 +227,8 @@ class Game:
             self._handle_events()
             if self.state == "playing":
                 self._update(dt)
+            elif self.state == "level_complete":
+                self._update_level_complete()
             self._draw()
 
             frame_count += 1
@@ -218,6 +252,7 @@ class Game:
         self.projectiles = []
         self.food.reposition(self.level.obstacles + [self.level.exit_rect])
         self.state = "playing"
+        self.level_complete_started_ms = None
 
     def _restart(self) -> None:
         self.level = Level()
@@ -231,6 +266,7 @@ class Game:
         self.projectiles = []
         self.food.reposition(self.level.obstacles + [self.level.exit_rect])
         self.state = "playing"
+        self.level_complete_started_ms = None
 
     def _player_bite(self) -> None:
         now_ms = pygame.time.get_ticks()
